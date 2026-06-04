@@ -1,0 +1,9 @@
+# Environment variables - never upload to GitHub
+.env
+
+# Python cache files - automatically generated, don't need to track
+__pycache__/
+*.pyc
+
+# VS Code settings - personal preferences, not project files
+.vscode/

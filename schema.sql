@@ -83,5 +83,7 @@ CREATE TABLE zip_district_crosswalk (
     id SERIAL PRIMARY KEY,
     zip_code VARCHAR(10) NOT NULL,
     district_number INTEGER NOT NULL,
+    school_district_id VARCHAR(20),
+    school_district_name VARCHAR(255),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

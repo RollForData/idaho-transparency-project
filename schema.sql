@@ -15,7 +15,8 @@ CREATE TABLE legislators (
     race_ethnicity VARCHAR(100),
     gender VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    headshot_url VARCHAR(500)
 );
 
 -- DEMOGRAPHIC MIRROR

@@ -17,7 +17,9 @@ CREATE TABLE legislators (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     headshot_url VARCHAR(500),
-    occupation VARCHAR(255)
+    occupation VARCHAR(255),
+    seat_designation VARCHAR(5),
+
 );
 
 -- DEMOGRAPHIC MIRROR

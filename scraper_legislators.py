@@ -34,6 +34,14 @@ def scrape_members(url, chamber):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
 
+    email_to_bio = {}
+    for table in soup.find_all('table'):
+        table_text = table.get_text(strip=True)
+        email_match = re.search(r'[\w\.-]+@(?:house|senate)\.idaho\.gov', table_text)
+        if email_match:
+            email = email_match.group(0).lower()
+            email_to_bio[email] = table_text
+
     members = []
     seen_names = set()
 
@@ -60,25 +68,28 @@ def scrape_members(url, chamber):
         if not data_p:
             continue
 
-        # Get raw HTML of paragraph to handle superscript term numbers
-        raw_html = str(data_p)
+        bio_text = None
+        email_tag = data_p.find('a', href=re.compile(r'mailto:'))
+        if email_tag:
+            email = email_tag.get_text(strip=True).lower()
+            raw_bio = email_to_bio.get(email, '')
+            if raw_bio:
+                bio_text = re.sub(re.escape(email), '', raw_bio, count=1, flags=re.IGNORECASE).strip()
+        member['bio_text'] = bio_text if bio_text else None
 
-        # Fix superscript term number: "2<sup>nd</sup> term" becomes "2nd term"
+        raw_html = str(data_p)
         raw_html_clean = re.sub(r'<sup>[^<]+</sup>', '', raw_html)
         data_p_clean = BeautifulSoup(raw_html_clean, 'html.parser')
 
         full_text = data_p_clean.get_text(separator='\n', strip=True)
         lines = [l.strip() for l in full_text.split('\n') if l.strip()]
 
-        # Extract district number
         district_line = next((l for l in lines if l.startswith('District')), None)
         member['district_number'] = parse_district_number(district_line) if district_line else None
 
-        # Extract term number
         term_line = next((l for l in lines if re.search(r'\d+\s*term', l, re.IGNORECASE)), None)
         member['total_terms'] = parse_term_number(term_line) if term_line else None
 
-        # Extract seat designation
         seat_line = next((l for l in lines if 'Seat' in l), None)
         if seat_line:
             seat_match = re.search(r'Seat\s([AB])', seat_line)
@@ -86,8 +97,6 @@ def scrape_members(url, chamber):
         else:
             member['seat_designation'] = None
 
-        # Extract occupation
-        # Skip known non-occupation labels
         skip_labels = ['home', 'statehouse', 'fax', 'committees', 'subscribe', 'view', 'session only']
         occupation = None
         found_phone = False
@@ -102,8 +111,6 @@ def scrape_members(url, chamber):
                         break
         member['occupation'] = occupation
 
-        # Find headshot image in the sibling column
-        # Navigate up to find the column container, then look at previous sibling column
         data_col = data_p.find_parent('div', class_=re.compile('vc_column_container'))
         if data_col:
             prev_col = data_col.find_previous_sibling('div')
@@ -115,10 +122,6 @@ def scrape_members(url, chamber):
         else:
             member['headshot_url'] = None
 
-        member['gender'] = None
-        member['age'] = None
-        member['race_ethnicity'] = None
-        member['years_registered_idaho'] = None
         current_year = datetime.now().year
         if current_year % 2 == 0:
             member['next_election_year'] = current_year
@@ -133,15 +136,25 @@ def insert_members(members):
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
 
-    inserted = 0
+    processed = 0
     for m in members:
         cur.execute("""
             INSERT INTO legislators (
                 full_name, chamber, district_number, party_affiliation,
-                total_terms, next_election_year, years_registered_idaho,
-                age, race_ethnicity, gender, headshot_url, occupation,
-                seat_designation
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                total_terms, next_election_year, headshot_url,
+                occupation, seat_designation, bio_text, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            ON CONFLICT (full_name) DO UPDATE SET
+                chamber = EXCLUDED.chamber,
+                district_number = EXCLUDED.district_number,
+                party_affiliation = EXCLUDED.party_affiliation,
+                total_terms = EXCLUDED.total_terms,
+                next_election_year = EXCLUDED.next_election_year,
+                headshot_url = EXCLUDED.headshot_url,
+                occupation = EXCLUDED.occupation,
+                seat_designation = EXCLUDED.seat_designation,
+                bio_text = EXCLUDED.bio_text,
+                updated_at = NOW()
         """, (
             m.get('full_name'),
             m.get('chamber'),
@@ -149,20 +162,17 @@ def insert_members(members):
             m.get('party_affiliation'),
             m.get('total_terms'),
             m.get('next_election_year'),
-            m.get('years_registered_idaho'),
-            m.get('age'),
-            m.get('race_ethnicity'),
-            m.get('gender'),
             m.get('headshot_url'),
             m.get('occupation'),
-            m.get('seat_designation')
+            m.get('seat_designation'),
+            m.get('bio_text')
         ))
-        inserted += 1
+        processed += 1
 
     conn.commit()
     cur.close()
     conn.close()
-    print(f"Successfully inserted {inserted} legislators into the database")
+    print(f"Successfully processed {processed} legislators (existing members updated, new members inserted)")
 
 if __name__ == '__main__':
     all_members = []

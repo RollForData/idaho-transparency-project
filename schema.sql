@@ -4,22 +4,18 @@
 -- LEGISLATORS (anchor table, everything joins to this)
 CREATE TABLE legislators (
     id SERIAL PRIMARY KEY,
-    full_name VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL UNIQUE,
     chamber VARCHAR(10) NOT NULL,
     district_number INTEGER NOT NULL,
     party_affiliation VARCHAR(50),
     total_terms INTEGER,
     next_election_year INTEGER,
-    years_registered_idaho INTEGER,
-    age INTEGER,
-    race_ethnicity VARCHAR(100),
-    gender VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     headshot_url VARCHAR(500),
     occupation VARCHAR(255),
     seat_designation VARCHAR(5),
-
+    bio_text TEXT
 );
 
 -- DEMOGRAPHIC MIRROR
@@ -90,4 +86,20 @@ CREATE TABLE zip_district_crosswalk (
     school_district_id VARCHAR(20),
     school_district_name VARCHAR(255),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- LEGISLATOR MANUAL RESEARCH
+CREATE TABLE legislator_manual_research (
+    legislator_id INTEGER PRIMARY KEY REFERENCES legislators(id),
+    birth_year INTEGER,
+    birth_year_source TEXT,
+    birthplace TEXT,
+    birthplace_source TEXT,
+    gender VARCHAR(20),
+    faith_referenced_in_platform BOOLEAN,
+    denomination TEXT,
+    religion_source TEXT,
+    wikipedia_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );

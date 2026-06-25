@@ -7,3 +7,8 @@ __pycache__/
 
 # VS Code settings - personal preferences, not project files
 .vscode/
+
+# Data files - raw and cleaned data files stay local only
+*.csv
+*.xlsx
+*.xls

@@ -13,7 +13,7 @@ DB_CONFIG = {
     'password': os.getenv('DB_PASSWORD')
 }
 
-CSV_FILE = 'legislator_manual_research.csv'
+CSV_FILE = 'legislator_manual_research/legislator_manual_research.csv'
 
 def parse_boolean(value):
     if not value:

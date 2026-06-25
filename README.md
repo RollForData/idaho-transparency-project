@@ -1,36 +1,40 @@
 # Idaho Legislative Transparency Project
 
-A public-facing database and dashboard that aggregates publicly available data on every Idaho state legislator, making it easy for any Idaho voter to look up their representative and understand who funds them, how they vote, and how their district has changed during their tenure.
+A public-facing database and dashboard profiling all 105 Idaho state legislators, making it easy for any Idaho voter to look up their representative and understand who funds them, how they vote, and how their district has changed during their tenure.
 
 ## What This Project Does
 
-Most civic data exists but is scattered across dozens of government websites with no easy way to connect it. This project pulls from public sources including the Idaho Legislature, Idaho Secretary of State, U.S. Census Bureau, Bureau of Labor Statistics, and campaign finance databases to build a unified, searchable profile for all 105 Idaho state legislators.
+Civic data in Idaho is publicly available but deliberately fragmented across multiple government systems with no easy way to connect it. This project pulls from public sources to build a unified, searchable profile for every Idaho state legislator.
 
-Each legislator profile includes:
+Each legislator profile will include:
 
-- **Identity and background** - chamber, district, terms served, time registered to vote in Idaho
-- **Demographic mirror** - how the legislator compares to their own district in age, wealth, race, and party registration
-- **Funding sources** - campaign donors, independent expenditures, and out-of-state money broken down by industry and type
-- **Notable votes** - key votes on Medicaid expansion and a documented pattern of votes to restrict Idaho's ballot initiative process, each paired with district-level impact data
-- **District quality of life** - how key metrics like uninsured rate, homeownership, unemployment, and per-pupil education spending have changed since the legislator took office
+- **Identity and background** - chamber, district, party, terms served, occupation
+- **Funding sources** - campaign donors broken down by type, in-state vs out-of-state, PAC contributions, and top donors
+- **Notable votes** - key votes paired with donor data to surface connections between funding sources and voting records
+- **Demographic context** - how the legislator compares to the constituents they represent
 
 ## How It Works
 
-Data is collected through Python web scrapers and API connections that run on a schedule via GitHub Actions. All data is stored in a PostgreSQL database and visualized through Tableau Public.
+Data is collected through Python scripts that scrape the Idaho Legislature website and pull from campaign finance APIs. All data is stored in a PostgreSQL database. Visualization layer is planned for Tableau Public.
+
+## What Is Currently Built
+
+**legislators table** — populated by `scraper_legislators.py`, which scrapes the Idaho Legislature House and Senate membership pages and upserts all 105 legislators into PostgreSQL.
+
+**legislator_manual_research table** — a 1:1 extension of the legislators table containing manually researched demographic data. Managed via Google Sheets and synced to the database using `sync_manual_research.py`.
+
+**funding_archive_2000_2018** — raw campaign finance data downloaded from the Idaho Secretary of State archive covering 2000 to 2018. Cleaned and standardized using `clean_funding_archive.py`. Pending load into PostgreSQL.
 
 ## Data Sources
 
-- Idaho Legislature membership directory
-- Idaho Secretary of State campaign finance portal
-- U.S. Census Bureau / Census Reporter API
-- Bureau of Labor Statistics
-- FollowTheMoney.org campaign finance API
-- LegiScan legislative tracking API
-- County assessor records
+- Idaho Legislature membership directory (legislature.idaho.gov)
+- Idaho Secretary of State campaign finance archive (sos.idaho.gov)
+- Idaho Sunshine campaign finance portal (sunshine.voteidaho.gov)
+- Manual research via Wikipedia and DuckDuckGo
 
 ## Project Status
 
-Currently in active development. Proof of concept being built for Mike Moyle, Idaho House Speaker and longest-serving member of the Idaho Legislature.
+Active development. Core legislator infrastructure is live in PostgreSQL. Campaign finance data pipeline is in progress across three systems covering 2000 to present.
 
 ## Built By
 

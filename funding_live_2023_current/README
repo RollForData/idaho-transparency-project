@@ -1,0 +1,55 @@
+# funding_live_2023_current
+
+This folder contains the raw source data and cleaning script for Idaho campaign finance transactions from 2023 to present, sourced from the Idaho Sunshine portal bulk CSV download. Unlike the archive and legacy datasets, this dataset is ongoing; the state continues to add transactions to the current year. The raw source file is a permanent, one-time compilation and is never re-downloaded in full; future updates will be handled by a separate refresh script that has not yet been built.
+
+## Contents
+
+`pull_funding_live.py` — reads the raw workbook, repairs known encoding and column-offset corruption, applies confirmed row-specific patches, standardizes currency, zip code, state, and date formatting, separates rows into clean data, rows needing manual review, and permanently excluded records, outputs a cleaned Excel file, and loads all clean records directly into PostgreSQL as a flat table.
+
+`LIVE [Raw Data] funding_data_New_2023_current.xlsx` — raw source data compiled from the Idaho Sunshine portal's bulk CSV downloads for transaction years 2023 through 2026, one tab per year. This file should never be replaced or modified. It is the permanent source of record for this dataset. Not tracked in git.
+
+`LIVE [Clean Data] funding_data_New_2023_current.xlsx` — cleaned output file produced by the script. Contains three tabs: Clean Data, Needs Manual Review, and Excluded Incomplete Records. Deleted and rewritten fresh on every run. Not tracked in git.
+
+## To run
+
+From the project root:
+
+`py funding_live_2023_current\pull_funding_live.py`
+
+This will overwrite the cleaned Excel file and drop and recreate the `funding_live_2023_current` table in PostgreSQL. Takes roughly 2 to 3 minutes to complete given the row volume, most of it during the SQL load step.
+
+## What the script does
+
+- Detects and repairs a corrupted-apostrophe encoding artifact (e.g. "O'Farrell", "Coeur d'Alene") that splits a field in two and shifts every subsequent column right by one position; merges the fragments and restores correct column alignment
+- Applies four confirmed row-specific patches for rows with unescaped commas or collapsed address fields that could not be repaired by a general rule; each patch is keyed to its exact source tab and row number so it only ever applies to that specific row
+- Validates every remaining row: Transaction Id must be numeric, Transaction Type must match a known value, Transaction Date must be parseable, Transaction Amount must be present and numeric for Contribution, Loan Received, and Return Contribution transaction types, and no row may have data spilling past the expected 28 columns
+- Permanently excludes 147 specific rows reviewed and confirmed on 2026-07-07: rows missing a Transaction Date or Amount that the state did not report, rows missing filing entity or contributor identity entirely, and joint-filer records split across rows with no recoverable identity. This is a fixed list, not an automated rule; any new row resembling these patterns in a future run goes to Needs Manual Review instead of being silently dropped
+- Any row that fails validation and isn't a confirmed patch or exclusion is written to the Needs Manual Review tab with a specific reason, rather than being dropped or guessed at
+- Strips leading and trailing whitespace and trailing commas, semicolons, and colons from every text field
+- Standardizes Contributor Address State to uppercase and corrects known non-standard values against the USPS abbreviation list (e.g. MIS corrected to MS)
+- Cleans zip codes: strips Excel formula wrapper characters, zero-pads 4-digit codes to 5 digits
+- Strips dollar signs and commas from Transaction Amount, Loan Interest Amount, and Total Loan Amount, converting each to numeric
+- Standardizes Transaction Date to YYYY-MM-DD format using flexible parsing, since the source file has inconsistent date formatting across rows
+- Corrects the Election Type and Election Year fields, which are swapped at the source
+- Adds a `report_year` column derived from the source tab name
+- Adds `source_row_number` and `source_sheet` columns to every row (clean, review, and excluded) so any record can be traced back to its exact position in the permanent raw file
+
+## Data notes
+
+- Transaction Id is not guaranteed unique across this table. Some legitimate transactions appear twice with identical amounts and dates, restated once in a monthly report and again in the year-end annual report. This is expected source behavior, not a duplication bug, and has not been deduplicated at this layer.
+- Amended is N for every row observed to date across all four years. No confirmed amended record (same Transaction Id with differing values) has been found. This may mean the source data doesn't carry amendment history the way the old live API did, or it may simply not have occurred yet in the years available.
+- Outstanding Loan rows may represent a loan balance carried forward from a prior year rather than new money entering a campaign, in some cases originating before this table's coverage window begins. No decision has been made yet on how to treat these; deferred to the normalization layer.
+- Roughly 20,000 rows have no Contributor Type, Last Name, or Company Name. This is expected, not an error: Idaho does not require donor identity disclosure for contributions under $50 (Unitemized), for Anonymous contributions, or for bank Interest income, which has no human contributor.
+- Contributor Address Line 1/2 and City are not standardized beyond whitespace and punctuation cleanup, as they are not currently used for any dashboard metric.
+- This dataset covers transaction years 2023 through 2026 to date. The 2023 tab in the raw file contains the full calendar year as downloaded from the state, not just the period from 12/20/2023 onward. The state has stated this dataset's data is only accurate from 12/20/2023 forward; filtering the 2023 tab to that cutoff has been deliberately deferred to the normalization layer, once date boundaries against `funding_legacy_2020_2023` are resolved, rather than applied here. Until that filtering happens, this table contains 2023 transactions that may overlap with or duplicate records already present in the legacy dataset.
+
+## Outstanding
+
+- Date boundary overlap with `funding_legacy_2020_2023` has not yet been resolved; deferred until all three funding datasets are cleaned and ready for aggregation.
+- Refresh process for pulling only new current-year transactions has not been built.
+- Decision on Outstanding Loan treatment (see Data notes) is pending.
+- This table's format is not yet standardized against archive and legacy field-for-field; that alignment will happen once archive and legacy are rebuilt to match this workflow.
+
+## Dependencies
+
+Raw source file `LIVE [Raw Data] funding_data_New_2023_current.xlsx` must be present in this folder before running the script. Requires PostgreSQL connection via .env file. No table dependencies currently.
